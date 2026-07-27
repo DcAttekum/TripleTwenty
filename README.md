@@ -16,8 +16,8 @@ This app automates the reminder so you don't have to keep track of it yourself.
 
 1. **Idle / Countdown state** — App runs a 20-minute countdown in the background.
 2. **Notification** — When the countdown hits zero, the app sends a notification prompting you to look away.
-3. **Look-away timer** — Tapping/pressing the notification starts a 20-second timer.
-4. **Reset** — Once the 20-second timer completes, the app goes silent and restarts the 20-minute countdown, repeating the cycle indefinitely.
+3. **Look-away timer** — Tapping the notification starts a 20-second timer.
+4. **Reset** — Once the 20-second timer completes, the app sends another notification, tapping the notification restarts the 20-minute countdown, repeating the cycle indefinitely.
 5. **Lock screen presence** — The current timer (whichever is active — the 20-minute countdown or the 20-second look-away timer) is always visible on the lock screen, similar to a stopwatch/live activity, so status is visible at a glance without unlocking the device.
 6. **Manual controls** — Pause, resume, and stop controls are available at all times, including from the lock screen surface.
 
