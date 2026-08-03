@@ -3,6 +3,8 @@ using Android.Appwidget;
 using Android.Content;
 using Android.OS;
 using Android.Widget;
+using TripleTwenty.Common;
+using TripleTwenty.Services;
 
 namespace TripleTwenty.Platforms.Android
 {
@@ -19,14 +21,23 @@ namespace TripleTwenty.Platforms.Android
     {
         #region Actions
 
+        public const string TimerStateChangedAction = "com.TripleTwenty.TimerWidget.TIMER_STATE_CHANGED";
         const string OpenAction = "com.TripleTwenty.TimerWidget.OPEN";
         const string PauseAction = "com.TripleTwenty.TimerWidget.PAUSE";
-        const string PlayAction = "com.TripleTwenty.TimerWidget.PLAY";
+        const string StartAction = "com.TripleTwenty.TimerWidget.START";
         const string StopAction = "com.TripleTwenty.TimerWidget.STOP";
 
         #endregion
 
         #region Private Methods
+
+        private static void NotifyAppIfOpen(Context context, TimerAction? action)
+        {
+            var notify = new Intent(TimerStateChangedAction);
+            notify.SetPackage(context.PackageName);
+            notify.PutExtra("Action", Convert.ToInt32(action));
+            context.SendBroadcast(notify);
+        }
 
         private static PendingIntent CreatePendingIntent(Context context, string action, int requestCode)
         {
@@ -44,9 +55,9 @@ namespace TripleTwenty.Platforms.Android
             var views = new RemoteViews(context.PackageName, Resource.Layout.timerwidget);
 
             views.SetOnClickPendingIntent(Resource.Id.widgetOpen, CreatePendingIntent(context, OpenAction, 101));
-            views.SetOnClickPendingIntent(Resource.Id.widgetOpen, CreatePendingIntent(context, PauseAction, 102));
-            views.SetOnClickPendingIntent(Resource.Id.widgetOpen, CreatePendingIntent(context, PlayAction, 103));
-            views.SetOnClickPendingIntent(Resource.Id.widgetOpen, CreatePendingIntent(context, StopAction, 104));
+            views.SetOnClickPendingIntent(Resource.Id.widgetPause, CreatePendingIntent(context, PauseAction, 102));
+            views.SetOnClickPendingIntent(Resource.Id.widgetStart, CreatePendingIntent(context, StartAction, 103));
+            views.SetOnClickPendingIntent(Resource.Id.widgetStop, CreatePendingIntent(context, StopAction, 104));
 
             return views;
         }
@@ -64,28 +75,45 @@ namespace TripleTwenty.Platforms.Android
 
             foreach (var id in appWidgetIds)
             {
-                var views = BuildRemoteViews(context);
-                appWidgetManager.UpdateAppWidget(id, views);
+                appWidgetManager.UpdateAppWidget(id, BuildRemoteViews(context));
             }
         }
 
         public override void OnReceive(Context? context, Intent? intent)
         {
-            if (context == null || intent == null)
+            if (context != null && intent != null)
             {
-                return;
-            }
+                TimerAction? action = null;
 
-            switch (intent.Action)
-            {
-                case OpenAction:
-                case PauseAction:
-                case PlayAction:
-                case StopAction:
-                    break;
-                default:
-                    base.OnReceive(context, intent);
-                    break;
+                switch (intent.Action)
+                {
+                    case OpenAction:
+                        break;
+                    case PauseAction:
+                        if (TimerService.Pause())
+                        {
+                            action = TimerAction.Paused;
+                        }
+                        break;
+                    case StartAction:
+                        if (TimerService.Start())
+                        {
+                            action = TimerAction.Started;
+                        }
+                        break;
+                    case StopAction:
+                        TimerService.Stop();
+                        action = TimerAction.Stopped;
+                        break;
+                    default:
+                        base.OnReceive(context, intent);
+                        break;
+                }
+
+                if (action != null)
+                {
+                    NotifyAppIfOpen(context, action);
+                }
             }
         }
 

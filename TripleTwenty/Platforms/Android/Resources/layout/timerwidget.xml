@@ -6,7 +6,7 @@
 	android:layout_height="wrap_content">
 	<Button
 		android:id="@+id/widgetOpen"
-		android:text="🟢"
+		android:text="➜]"
 		android:layout_width="wrap_content"
 		android:layout_height="wrap_content" />
 	<Button
@@ -15,13 +15,13 @@
 		android:layout_width="wrap_content"
 		android:layout_height="wrap_content" />
 	<Button
-		android:id="@+id/widgetPlay"
+		android:id="@+id/widgetStart"
 		android:text="▶"
 		android:layout_width="wrap_content"
 		android:layout_height="wrap_content" />
 	<Button
 		android:id="@+id/widgetStop"
-		android:text="⏹"
+		android:text="🟥"
 		android:layout_width="wrap_content"
 		android:layout_height="wrap_content" />
 </LinearLayout>

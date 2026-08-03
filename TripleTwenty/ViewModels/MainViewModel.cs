@@ -1,6 +1,9 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using System.ComponentModel;
+using CommunityToolkit.Mvvm.Messaging;
+using TripleTwenty.Common;
+using TripleTwenty.Models;
+using TripleTwenty.Services;
 
 namespace TripleTwenty.ViewModels
 {
@@ -11,40 +14,16 @@ namespace TripleTwenty.ViewModels
     {
         #region Constants
 
-        const string IsRunning = "Timer.IsRunning";
-        const string DurationSeconds = "Timer.DurationSeconds";
-        const string RemainingAtPause = "Timer.RemainingAtPause";
-        const string StartedAt = "Timer.StartedAt";
-        const string Completed = "Timer.Completed";
-
         const int DefaultTimerDuration = 20; // In minutes
 
         #endregion
 
         #region Properties
 
-        public string Time => GetCurrentTimeRemaining().ToString(@"mm\:ss");
-        private TimeSpan GetCurrentTimeRemaining()
-        {
-            var remainingAtPause = TimeSpan.FromSeconds(Preferences.Get(RemainingAtPause, 0d));
-            var isRunning = Preferences.Get(IsRunning, false);
-            var remaining = remainingAtPause;
-
-            if (isRunning)
-            {
-                var startedAtTicks = Preferences.Get(StartedAt, 0L);
-                var startedAt = new DateTime(startedAtTicks, DateTimeKind.Utc);
-                var elapsedSinceStart = DateTime.UtcNow - startedAt;
-
-                remaining = remainingAtPause - elapsedSinceStart;
-                if (remaining < TimeSpan.Zero)
-                {
-                    remaining = TimeSpan.Zero;
-                }
-            }
-
-            return remaining;
-        }
+        /// <summary>
+        /// The time remaining in mm:ss format for the front end.
+        /// </summary>
+        public string Time => TimerService.GetCurrentTimeRemaining().ToString(@"mm\:ss");
 
         private Timer? uiRefreshTimer { get; set; }
 
@@ -52,9 +31,47 @@ namespace TripleTwenty.ViewModels
 
         #region Constructors
 
+        /// <summary>
+        /// Default constructor.
+        /// </summary>
         public MainViewModel()
         {
-            SetDuration(TimeSpan.FromMinutes(DefaultTimerDuration));
+            // Handles messages from widget.
+            WeakReferenceMessenger.Default.Register<TimerStateChangedMessage>(this, (recipient, message) =>
+            {
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    switch (message.Action)
+                    {
+                        case TimerAction.Started:
+                            if (uiRefreshTimer == null)
+                            {
+                                StartUIRefreshTimer();
+                            }
+                            break;
+                        case TimerAction.Paused:
+                        case TimerAction.Stopped:
+                        case TimerAction.Completed:
+                            uiRefreshTimer?.Dispose();
+                            uiRefreshTimer = null;
+                            break;
+                    }
+
+                    RaiseTimeChanged();
+                });
+            });
+
+            // Sets duration if setting isn't available.
+            if (!Preferences.ContainsKey(PreferenceKeys.DurationSeconds))
+            {
+                SetDuration(TimeSpan.FromMinutes(DefaultTimerDuration));
+            }
+
+            // Starts ui refresh if timer was started while app was not open.
+            if (Preferences.ContainsKey(PreferenceKeys.IsRunning) && Preferences.Get(PreferenceKeys.IsRunning, false))
+            {
+                StartUIRefreshTimer();
+            }
         }
 
         #endregion
@@ -63,10 +80,10 @@ namespace TripleTwenty.ViewModels
 
         private void SetDuration(TimeSpan duration)
         {
-            Preferences.Set(DurationSeconds, duration.TotalSeconds);
-            Preferences.Set(RemainingAtPause, duration.TotalSeconds);
-            Preferences.Set(IsRunning, false);
-            Preferences.Set(Completed, false);
+            Preferences.Set(PreferenceKeys.DurationSeconds, duration.TotalSeconds);
+            Preferences.Set(PreferenceKeys.RemainingAtPause, duration.TotalSeconds);
+            Preferences.Set(PreferenceKeys.IsRunning, false);
+            Preferences.Set(PreferenceKeys.Completed, false);
 
             RaiseTimeChanged();
         }
@@ -81,13 +98,13 @@ namespace TripleTwenty.ViewModels
             uiRefreshTimer?.Dispose();
             uiRefreshTimer = new Timer(_ =>
             {
-                var remaining = GetCurrentTimeRemaining();
+                var remaining = TimerService.GetCurrentTimeRemaining();
                 RaiseTimeChanged();
 
-                if (remaining <= TimeSpan.Zero && !Preferences.Get(Completed, false))
+                if (remaining <= TimeSpan.Zero && !Preferences.Get(PreferenceKeys.Completed, false))
                 {
-                    Preferences.Set(Completed, true);
-                    Preferences.Set(IsRunning, false);
+                    Preferences.Set(PreferenceKeys.Completed, true);
+                    Preferences.Set(PreferenceKeys.IsRunning, false);
 
                     uiRefreshTimer?.Dispose();
                     uiRefreshTimer = null;
@@ -104,11 +121,8 @@ namespace TripleTwenty.ViewModels
         [RelayCommand]
         private void ClickStartTimer()
         {
-            if (!Preferences.Get(IsRunning, false) && !Preferences.Get(Completed, false))
+            if (TimerService.Start())
             {
-                Preferences.Set(StartedAt, DateTime.UtcNow.Ticks);
-                Preferences.Set(IsRunning, true);
-
                 StartUIRefreshTimer();
                 RaiseTimeChanged();
             }
@@ -117,14 +131,11 @@ namespace TripleTwenty.ViewModels
         [RelayCommand]
         private void ClickPauseTimer()
         {
-            if (Preferences.Get(IsRunning, false))
+            if (TimerService.Pause())
             {
-                var remaining = GetCurrentTimeRemaining();
-                Preferences.Set(RemainingAtPause, remaining.TotalSeconds);
-                Preferences.Set(IsRunning, false);
-
                 uiRefreshTimer?.Dispose();
                 uiRefreshTimer = null;
+
                 RaiseTimeChanged();
             }
         }
@@ -134,7 +145,9 @@ namespace TripleTwenty.ViewModels
         {
             uiRefreshTimer?.Dispose();
             uiRefreshTimer = null;
-            SetDuration(TimeSpan.FromMinutes(DefaultTimerDuration));
+
+            TimerService.Stop();
+            RaiseTimeChanged();
         }
 
         #endregion
