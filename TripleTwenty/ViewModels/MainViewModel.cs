@@ -1,5 +1,6 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using System.ComponentModel;
 
 namespace TripleTwenty.ViewModels
 {
@@ -8,23 +9,44 @@ namespace TripleTwenty.ViewModels
     /// </summary>
     public partial class MainViewModel : ObservableObject
     {
+        #region Constants
+
+        const string IsRunning = "Timer.IsRunning";
+        const string DurationSeconds = "Timer.DurationSeconds";
+        const string RemainingAtPause = "Timer.RemainingAtPause";
+        const string StartedAt = "Timer.StartedAt";
+        const string Completed = "Timer.Completed";
+
+        const int DefaultTimerDuration = 20; // In minutes
+
+        #endregion
+
         #region Properties
 
-        [ObservableProperty]
-        private string timeLeft;
-
-        private TimeSpan _time;
-        private TimeSpan Time
+        public string Time => GetCurrentTimeRemaining().ToString(@"mm\:ss");
+        private TimeSpan GetCurrentTimeRemaining()
         {
-            get { return _time; }
-            set
+            var remainingAtPause = TimeSpan.FromSeconds(Preferences.Get(RemainingAtPause, 0d));
+            var isRunning = Preferences.Get(IsRunning, false);
+            var remaining = remainingAtPause;
+
+            if (isRunning)
             {
-                _time = value;
-                TimeLeft = value.ToString(@"mm\:ss");
+                var startedAtTicks = Preferences.Get(StartedAt, 0L);
+                var startedAt = new DateTime(startedAtTicks, DateTimeKind.Utc);
+                var elapsedSinceStart = DateTime.UtcNow - startedAt;
+
+                remaining = remainingAtPause - elapsedSinceStart;
+                if (remaining < TimeSpan.Zero)
+                {
+                    remaining = TimeSpan.Zero;
+                }
             }
+
+            return remaining;
         }
 
-        private Timer? Timer { get; set; }
+        private Timer? uiRefreshTimer { get; set; }
 
         #endregion
 
@@ -32,26 +54,47 @@ namespace TripleTwenty.ViewModels
 
         public MainViewModel()
         {
-            TimeLeft = string.Empty;
-            Time = TimeSpan.FromMinutes(20);
+            SetDuration(TimeSpan.FromMinutes(DefaultTimerDuration));
         }
 
         #endregion
 
         #region Private Methods
 
-        private void StartTimer()
+        private void SetDuration(TimeSpan duration)
         {
-            if (this.Timer == null)
+            Preferences.Set(DurationSeconds, duration.TotalSeconds);
+            Preferences.Set(RemainingAtPause, duration.TotalSeconds);
+            Preferences.Set(IsRunning, false);
+            Preferences.Set(Completed, false);
+
+            RaiseTimeChanged();
+        }
+
+        private void OnCompleted()
+        {
+            throw new NotImplementedException();
+        }
+
+        private void StartUIRefreshTimer()
+        {
+            uiRefreshTimer?.Dispose();
+            uiRefreshTimer = new Timer(_ =>
             {
-                this.Timer = new Timer(obj =>
+                var remaining = GetCurrentTimeRemaining();
+                RaiseTimeChanged();
+
+                if (remaining <= TimeSpan.Zero && !Preferences.Get(Completed, false))
                 {
-                    if (!Time.Equals(TimeSpan.Zero))
-                    {
-                        Time = Time.Subtract(TimeSpan.FromSeconds(1));
-                    }
-                }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
-            }
+                    Preferences.Set(Completed, true);
+                    Preferences.Set(IsRunning, false);
+
+                    uiRefreshTimer?.Dispose();
+                    uiRefreshTimer = null;
+
+                    MainThread.BeginInvokeOnMainThread(OnCompleted);
+                }
+            }, null, TimeSpan.FromMilliseconds(500), TimeSpan.FromMilliseconds(500));
         }
 
         #endregion
@@ -61,30 +104,45 @@ namespace TripleTwenty.ViewModels
         [RelayCommand]
         private void ClickStartTimer()
         {
-            StartTimer();
+            if (!Preferences.Get(IsRunning, false) && !Preferences.Get(Completed, false))
+            {
+                Preferences.Set(StartedAt, DateTime.UtcNow.Ticks);
+                Preferences.Set(IsRunning, true);
+
+                StartUIRefreshTimer();
+                RaiseTimeChanged();
+            }
         }
 
         [RelayCommand]
         private void ClickPauseTimer()
         {
-            if (this.Timer != null)
+            if (Preferences.Get(IsRunning, false))
             {
-                this.Timer?.Dispose();
-                this.Timer = null;
-            }
-            else
-            {
-                StartTimer();
+                var remaining = GetCurrentTimeRemaining();
+                Preferences.Set(RemainingAtPause, remaining.TotalSeconds);
+                Preferences.Set(IsRunning, false);
+
+                uiRefreshTimer?.Dispose();
+                uiRefreshTimer = null;
+                RaiseTimeChanged();
             }
         }
 
         [RelayCommand]
         private void ClickStopTimer()
         {
-            this.Timer?.Dispose();
-            this.Timer = null;
-            Time = TimeSpan.FromMinutes(20);
+            uiRefreshTimer?.Dispose();
+            uiRefreshTimer = null;
+            SetDuration(TimeSpan.FromMinutes(DefaultTimerDuration));
         }
+
+        #endregion
+
+        #region PropertyChanged
+
+        public void RaiseTimeChanged() =>
+            MainThread.BeginInvokeOnMainThread(() => OnPropertyChanged(nameof(Time)));
 
         #endregion
     }
