@@ -23,10 +23,10 @@ This app automates the reminder so you don't have to keep track of it yourself.
 
 ## Planned Features
 
-* \[ ] Persistent 20-minute background countdown
-* \[ ] Local notification triggered at countdown end
-* \[ ] 20-second look-away timer triggered by user interaction with the notification
-* \[ ] Automatic cycle restart after look-away timer completes
+* \[x] Persistent 20-minute background countdown
+* \[x] Local notification triggered at countdown end
+* \[x] 20-second look-away timer triggered by user interaction with the notification
+* \[x] Automatic cycle restart after look-away timer completes
 * \[ ] Lock screen / live activity-style display of current timer state
 * \[ ] Pause / Resume / Stop controls accessible from lock screen
 * \[ ] Persisted state across app restarts (so a pause/stop survives a relaunch)
@@ -40,6 +40,4 @@ This app automates the reminder so you don't have to keep track of it yourself.
 ## Project Status
 
 Early planning / scaffolding stage. This README describes intended behavior; implementation is in progress.
-
-
 

@@ -11,7 +11,6 @@ namespace TripleTwenty.Platforms.Android
     [BroadcastReceiver(Label = "Timer Widget", Exported = true)]
     [IntentFilter(new[] {
         "android.appwidget.action.APPWIDGET_UPDATE",
-        "com.TripleTwenty.TimerWidget.OPEN",
         "com.TripleTwenty.TimerWidget.PAUSE",
         "com.TripleTwenty.TimerWidget.PLAY",
         "com.TripleTwenty.TimerWidget.STOP"
@@ -22,7 +21,6 @@ namespace TripleTwenty.Platforms.Android
         #region Actions
 
         public const string TimerStateChangedAction = "com.TripleTwenty.TimerWidget.TIMER_STATE_CHANGED";
-        const string OpenAction = "com.TripleTwenty.TimerWidget.OPEN";
         const string PauseAction = "com.TripleTwenty.TimerWidget.PAUSE";
         const string StartAction = "com.TripleTwenty.TimerWidget.START";
         const string StopAction = "com.TripleTwenty.TimerWidget.STOP";
@@ -39,7 +37,21 @@ namespace TripleTwenty.Platforms.Android
             context.SendBroadcast(notify);
         }
 
-        private static PendingIntent CreatePendingIntent(Context context, string action, int requestCode)
+        private static PendingIntent? CreateOpenPendingIntent(Context context, int requestCode)
+        {
+            var packageManager = context.PackageManager;
+            var openIntent = packageManager?.GetLaunchIntentForPackage(context.PackageName ?? string.Empty);
+            openIntent ??= new Intent(context, typeof(MainActivity));
+
+            openIntent.SetFlags(ActivityFlags.NewTask | ActivityFlags.ClearTop);
+
+            var flags = PendingIntentFlags.UpdateCurrent |
+                (Build.VERSION.SdkInt >= BuildVersionCodes.S ? PendingIntentFlags.Immutable : 0);
+
+            return PendingIntent.GetActivity(context, requestCode, openIntent, flags);
+        }
+
+        private static PendingIntent? CreatePendingIntent(Context context, string action, int requestCode)
         {
             var intent = new Intent(context, typeof(TimerWidgetProvider));
             intent.SetAction(action);
@@ -54,7 +66,7 @@ namespace TripleTwenty.Platforms.Android
         {
             var views = new RemoteViews(context.PackageName, Resource.Layout.timerwidget);
 
-            views.SetOnClickPendingIntent(Resource.Id.widgetOpen, CreatePendingIntent(context, OpenAction, 101));
+            views.SetOnClickPendingIntent(Resource.Id.widgetOpen, CreateOpenPendingIntent(context, 101));
             views.SetOnClickPendingIntent(Resource.Id.widgetPause, CreatePendingIntent(context, PauseAction, 102));
             views.SetOnClickPendingIntent(Resource.Id.widgetStart, CreatePendingIntent(context, StartAction, 103));
             views.SetOnClickPendingIntent(Resource.Id.widgetStop, CreatePendingIntent(context, StopAction, 104));
@@ -87,8 +99,6 @@ namespace TripleTwenty.Platforms.Android
 
                 switch (intent.Action)
                 {
-                    case OpenAction:
-                        break;
                     case PauseAction:
                         if (TimerService.Pause())
                         {
