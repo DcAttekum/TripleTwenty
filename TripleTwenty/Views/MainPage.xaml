@@ -3,36 +3,94 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:viewmodels="clr-namespace:TripleTwenty.ViewModels"
              x:Class="TripleTwenty.Views.MainPage"
-             x:DataType="viewmodels:MainViewModel">
+             x:DataType="viewmodels:MainViewModel"
+             Shell.NavBarIsVisible="False">
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            <Style x:Key="RegularBorder"
+                   TargetType="Border">
+                <Setter Property="StrokeShape" Value="RoundRectangle 10" />
+                <Setter Property="StrokeThickness" Value="0" />
+                <Setter Property="Background" Value="#CC444444" />
+            </Style>
 
-    <Grid RowDefinitions="*, 100, 100, 100">
-        <Label Grid.Row="0"
-               HorizontalOptions="Center"
-               Text="{Binding Time}"
-               FontSize="24"
-               FontAttributes="Bold"
-               TextColor="Purple" />
+            <Style x:Key="ButtonBorder"
+                   TargetType="Border"
+                   BasedOn="{StaticResource RegularBorder}">
+                <Setter Property="Margin" Value="5" />
 
-        <Button Grid.Row="1"
-                Text="Start"
-                FontSize="20"
-                FontAttributes="Bold"
-                Background="DarkGreen"
-                Command="{Binding StartTimerCommand}" />
+                <Setter Property="VisualStateManager.VisualStateGroups">
+                    <VisualStateGroupList>
+                        <VisualStateGroup x:Name="CommonStates">
+                            <VisualState x:Name="Normal">
+                                <VisualState.Setters>
+                                    <Setter Property="Background" Value="#CC444444" />
+                                </VisualState.Setters>
+                            </VisualState>
 
-        <Button Grid.Row="2"
-                Text="Pause"
-                FontSize="20"
-                FontAttributes="Bold"
-                Background="Orange"
-                Command="{Binding PauseTimerCommand}" />
+                            <VisualState x:Name="PointerOver">
+                                <VisualState.Setters>
+                                    <Setter Property="Background" Value="#CC777777" />
+                                </VisualState.Setters>
+                            </VisualState>
+                        </VisualStateGroup>
+                    </VisualStateGroupList>
+                </Setter>
+            </Style>
 
-        <Button Grid.Row="3"
-                Text="Stop"
-                FontSize="20"
-                FontAttributes="Bold"
-                Background="DarkRed"
-                Command="{Binding StopTimerCommand}" />
+            <Style TargetType="Button">
+                <Setter Property="Padding" Value="20, 10" />
+                <Setter Property="FontSize" Value="35" />
+                <Setter Property="FontAttributes" Value="Bold" />
+                <Setter Property="Background" Value="Transparent" />
+            </Style>
+        </ResourceDictionary>
+    </ContentPage.Resources>
+
+    <Grid RowDefinitions="*, auto, auto, 200"
+          ColumnDefinitions="*, auto, auto, auto, *">
+        <Grid.Background>
+            <LinearGradientBrush>
+                <GradientStop Color="#00FFFF" Offset="0" />
+                <GradientStop Color="#000044" Offset="1" />
+            </LinearGradientBrush>
+        </Grid.Background>
+
+        <Border Grid.Row="1"
+                Grid.Column="1"
+                Grid.ColumnSpan="3"
+                Margin="5"
+                Padding="15"
+                Style="{StaticResource RegularBorder}">
+            <Label HorizontalOptions="Center"
+                   Text="{Binding Time}"
+                   FontSize="48"
+                   FontAttributes="Bold"
+                   TextColor="#FFF" />
+        </Border>
+
+        <Border Grid.Row="2"
+                Grid.Column="1"
+                Style="{StaticResource ButtonBorder}">
+            <Button Text="❚❚"
+                    TextColor="#DDDD00"
+                    Command="{Binding PauseTimerCommand}" />
+        </Border>
+
+        <Border Grid.Row="2"
+                Grid.Column="2"
+                Style="{StaticResource ButtonBorder}">
+            <Button Text="▶"
+                    TextColor="#009900"
+                    Command="{Binding StartTimerCommand}" />
+        </Border>
+
+        <Border Grid.Row="2"
+                Grid.Column="3"
+                Style="{StaticResource ButtonBorder}">
+            <Button Text="🟥"
+                    Command="{Binding StopTimerCommand}" />
+        </Border>
     </Grid>
 
 </ContentPage>
