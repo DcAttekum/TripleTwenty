@@ -15,6 +15,33 @@ namespace TripleTwenty.Services
     /// </summary>
     public static class TimerService
     {
+        #region Properties
+
+        /// <summary>
+        /// The default long timer duration in minutes.
+        /// </summary>
+#if DEBUG
+        public static double LongTimerDuration { get; } = 0.5;
+#else
+        public static double LongTimerDuration { get; } = 20;
+#endif
+
+        /// <summary>
+        /// The default short timer duration in minutes.
+        /// </summary>
+#if DEBUG
+        public static double ShortTimerDuration { get; } = 0.1;
+#else
+        public static double ShortTimerDuration { get; } = 0.33333;
+#endif
+
+        /// <summary>
+        /// The current timer duration.
+        /// </summary>
+        public static double TimerDuration { get; set; } = LongTimerDuration;
+
+        #endregion
+
         /// <summary>
         /// Get the current remaining time on the timer.
         /// </summary>
@@ -86,8 +113,8 @@ namespace TripleTwenty.Services
         /// </summary>
         public static void Stop()
         {
-            Preferences.Set(PreferenceKeys.DurationSeconds, TimeSpan.FromMinutes(Defaults.TimerDuration).TotalSeconds);
-            Preferences.Set(PreferenceKeys.RemainingAtPause, TimeSpan.FromMinutes(Defaults.TimerDuration).TotalSeconds);
+            Preferences.Set(PreferenceKeys.DurationSeconds, TimeSpan.FromMinutes(TimerDuration).TotalSeconds);
+            Preferences.Set(PreferenceKeys.RemainingAtPause, TimeSpan.FromMinutes(TimerDuration).TotalSeconds);
             Preferences.Set(PreferenceKeys.IsRunning, false);
             Preferences.Set(PreferenceKeys.Completed, false);
         }

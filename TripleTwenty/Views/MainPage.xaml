@@ -18,21 +18,21 @@
                 FontSize="20"
                 FontAttributes="Bold"
                 Background="DarkGreen"
-                Command="{Binding ClickStartTimerCommand}" />
+                Command="{Binding StartTimerCommand}" />
 
         <Button Grid.Row="2"
                 Text="Pause"
                 FontSize="20"
                 FontAttributes="Bold"
                 Background="Orange"
-                Command="{Binding ClickPauseTimerCommand}" />
+                Command="{Binding PauseTimerCommand}" />
 
         <Button Grid.Row="3"
                 Text="Stop"
                 FontSize="20"
                 FontAttributes="Bold"
                 Background="DarkRed"
-                Command="{Binding ClickStopTimerCommand}" />
+                Command="{Binding StopTimerCommand}" />
     </Grid>
 
 </ContentPage>

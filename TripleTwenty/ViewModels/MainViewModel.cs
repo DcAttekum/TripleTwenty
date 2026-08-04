@@ -1,6 +1,8 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
+using Plugin.LocalNotification;
+using Plugin.LocalNotification.Core.Models;
 using TripleTwenty.Common;
 using TripleTwenty.Models;
 using TripleTwenty.Services;
@@ -12,12 +14,6 @@ namespace TripleTwenty.ViewModels
     /// </summary>
     public partial class MainViewModel : ObservableObject
     {
-        #region Constants
-
-        const int DefaultTimerDuration = 20; // In minutes
-
-        #endregion
-
         #region Properties
 
         /// <summary>
@@ -36,6 +32,9 @@ namespace TripleTwenty.ViewModels
         /// </summary>
         public MainViewModel()
         {
+            _ = CheckNotificationPermissionAsync();
+            LocalNotificationCenter.Current.NotificationActionTapped += Current_NotificationActionTapped;
+
             // Handles messages from widget.
             WeakReferenceMessenger.Default.Register<TimerStateChangedMessage>(this, (recipient, message) =>
             {
@@ -64,7 +63,7 @@ namespace TripleTwenty.ViewModels
             // Sets duration if setting isn't available.
             if (!Preferences.ContainsKey(PreferenceKeys.DurationSeconds))
             {
-                SetDuration(TimeSpan.FromMinutes(DefaultTimerDuration));
+                SetDuration(TimeSpan.FromMinutes(TimerService.LongTimerDuration));
             }
 
             // Starts ui refresh if timer was started while app was not open.
@@ -78,6 +77,23 @@ namespace TripleTwenty.ViewModels
 
         #region Private Methods
 
+        private async Task CheckNotificationPermissionAsync()
+        {
+            var notificationsAllowed = LocalNotificationCenter.Current.AreNotificationsEnabled().Result;
+            if (!notificationsAllowed)
+            {
+                notificationsAllowed = LocalNotificationCenter.Current.RequestNotificationPermission().Result;
+            }
+        }
+
+        private void Current_NotificationActionTapped(Plugin.LocalNotification.EventArgs.NotificationActionEventArgs e)
+        {
+            if (e.IsDismissed || e.IsTapped)
+            {
+                MainThread.BeginInvokeOnMainThread(StartTimer);
+            }
+        }
+
         private void SetDuration(TimeSpan duration)
         {
             Preferences.Set(PreferenceKeys.DurationSeconds, duration.TotalSeconds);
@@ -90,7 +106,35 @@ namespace TripleTwenty.ViewModels
 
         private void OnCompleted()
         {
-            throw new NotImplementedException();
+            NotificationRequest? request = null;
+
+            // Long timer was last active.
+            if (Preferences.Get(PreferenceKeys.DurationSeconds, 0d) ==
+                TimeSpan.FromMinutes(TimerService.LongTimerDuration).TotalSeconds)
+            {
+                TimerService.TimerDuration = TimerService.ShortTimerDuration;
+                request = new NotificationRequest
+                {
+                    NotificationId = 33,
+                    Title = "Time to look away!"
+                };
+            }
+            else // Short timer was last active.
+            {
+                TimerService.TimerDuration = TimerService.LongTimerDuration;
+                request = new NotificationRequest
+                {
+                    NotificationId = 34,
+                    Title = "Back to it!"
+                };
+            }
+
+            SetDuration(TimeSpan.FromMinutes(TimerService.TimerDuration));
+
+            if (request != null)
+            {
+                LocalNotificationCenter.Current.Show(request);
+            }
         }
 
         private void StartUIRefreshTimer()
@@ -119,7 +163,7 @@ namespace TripleTwenty.ViewModels
         #region Commands
 
         [RelayCommand]
-        private void ClickStartTimer()
+        private void StartTimer()
         {
             if (TimerService.Start())
             {
@@ -129,7 +173,7 @@ namespace TripleTwenty.ViewModels
         }
 
         [RelayCommand]
-        private void ClickPauseTimer()
+        private void PauseTimer()
         {
             if (TimerService.Pause())
             {
@@ -141,12 +185,14 @@ namespace TripleTwenty.ViewModels
         }
 
         [RelayCommand]
-        private void ClickStopTimer()
+        private void StopTimer()
         {
             uiRefreshTimer?.Dispose();
             uiRefreshTimer = null;
 
+            TimerService.TimerDuration = TimerService.LongTimerDuration;
             TimerService.Stop();
+
             RaiseTimeChanged();
         }
 
