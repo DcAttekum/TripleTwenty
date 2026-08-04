@@ -8,6 +8,10 @@
         /// <summary>
         /// The default timer duration in minutes.
         /// </summary>
-        public static int TimerDuration { get; } = 20;
+#if DEBUG
+        public static double TimerDuration { get; } = 0.5;
+#else
+        public static double TimerDuration { get; } = 20;
+#endif
     }
 }

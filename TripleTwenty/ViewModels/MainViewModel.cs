@@ -1,6 +1,8 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
+using Plugin.LocalNotification;
+using Plugin.LocalNotification.Core.Models;
 using TripleTwenty.Common;
 using TripleTwenty.Models;
 using TripleTwenty.Services;
@@ -36,6 +38,12 @@ namespace TripleTwenty.ViewModels
         /// </summary>
         public MainViewModel()
         {
+            var notificationsAllowed = LocalNotificationCenter.Current.AreNotificationsEnabled().Result;
+            if (!notificationsAllowed)
+            {
+                notificationsAllowed = LocalNotificationCenter.Current.RequestNotificationPermission().Result;
+            }
+
             // Handles messages from widget.
             WeakReferenceMessenger.Default.Register<TimerStateChangedMessage>(this, (recipient, message) =>
             {
@@ -90,7 +98,13 @@ namespace TripleTwenty.ViewModels
 
         private void OnCompleted()
         {
-            throw new NotImplementedException();
+            var request = new NotificationRequest
+            {
+                NotificationId = 33,
+                Title = "Time to look away!"
+            };
+
+            LocalNotificationCenter.Current.Show(request);
         }
 
         private void StartUIRefreshTimer()
