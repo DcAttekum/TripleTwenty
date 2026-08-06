@@ -27,9 +27,8 @@ This app automates the reminder so you don't have to keep track of it yourself.
 * \[x] Local notification triggered at countdown end
 * \[x] 20-second look-away timer triggered by user interaction with the notification
 * \[x] Automatic cycle restart after look-away timer completes
-* \[ ] Lock screen / live activity-style display of current timer state
-* \[ ] Pause / Resume / Stop controls accessible from lock screen
-* \[ ] Persisted state across app restarts (so a pause/stop survives a relaunch)
+* \[x] Pause / Resume / Stop controls accessible from a widget
+* \[x] Persisted state across app restarts (so a pause/stop survives a relaunch)
 * \[ ] Cross-platform support (Windows, Android, iOS/macOS as applicable)
 
 ## Tech Stack
