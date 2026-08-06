@@ -1,6 +1,7 @@
 ﻿using CommunityToolkit.Maui;
 using Microsoft.Extensions.Logging;
 using Plugin.LocalNotification;
+using TripleTwenty.Services;
 using TripleTwenty.ViewModels;
 using TripleTwenty.Views;
 
@@ -28,7 +29,11 @@ namespace TripleTwenty
     		builder.Logging.AddDebug();
 #endif
 
-            return builder.Build();
+            var app = builder.Build();
+
+            TimerService.Initialize();
+
+            return app;
         }
     }
 }

@@ -1,8 +1,6 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
-using Plugin.LocalNotification;
-using Plugin.LocalNotification.Core.Models;
 using TripleTwenty.Common;
 using TripleTwenty.Models;
 using TripleTwenty.Services;
@@ -12,7 +10,7 @@ namespace TripleTwenty.ViewModels
     /// <summary>
     /// The main view model.
     /// </summary>
-    public partial class MainViewModel : ObservableObject
+    public partial class MainViewModel : ObservableObject, IDisposable
     {
         #region Properties
 
@@ -32,9 +30,6 @@ namespace TripleTwenty.ViewModels
         /// </summary>
         public MainViewModel()
         {
-            _ = CheckNotificationPermissionAsync();
-            LocalNotificationCenter.Current.NotificationActionTapped += Current_NotificationActionTapped;
-
             // Handles messages from widget.
             WeakReferenceMessenger.Default.Register<TimerStateChangedMessage>(this, (recipient, message) =>
             {
@@ -63,7 +58,9 @@ namespace TripleTwenty.ViewModels
             // Sets duration if setting isn't available.
             if (!Preferences.ContainsKey(PreferenceKeys.DurationSeconds))
             {
-                SetDuration(TimeSpan.FromMinutes(TimerService.LongTimerDuration));
+                TimerService.TimerDuration = TimerService.LongTimerDuration;
+                TimerService.Reset();
+                RaiseTimeChanged();
             }
 
             // Starts ui refresh if timer was started while app was not open.
@@ -77,84 +74,12 @@ namespace TripleTwenty.ViewModels
 
         #region Private Methods
 
-        private async Task CheckNotificationPermissionAsync()
-        {
-            var notificationsAllowed = LocalNotificationCenter.Current.AreNotificationsEnabled().Result;
-            if (!notificationsAllowed)
-            {
-                notificationsAllowed = LocalNotificationCenter.Current.RequestNotificationPermission().Result;
-            }
-        }
-
-        private void Current_NotificationActionTapped(Plugin.LocalNotification.EventArgs.NotificationActionEventArgs e)
-        {
-            if (e.IsDismissed || e.IsTapped)
-            {
-                MainThread.BeginInvokeOnMainThread(StartTimer);
-            }
-        }
-
-        private void SetDuration(TimeSpan duration)
-        {
-            Preferences.Set(PreferenceKeys.DurationSeconds, duration.TotalSeconds);
-            Preferences.Set(PreferenceKeys.RemainingAtPause, duration.TotalSeconds);
-            Preferences.Set(PreferenceKeys.IsRunning, false);
-            Preferences.Set(PreferenceKeys.Completed, false);
-
-            RaiseTimeChanged();
-        }
-
-        private void OnCompleted()
-        {
-            NotificationRequest? request = null;
-
-            // Long timer was last active.
-            if (Preferences.Get(PreferenceKeys.DurationSeconds, 0d) ==
-                TimeSpan.FromMinutes(TimerService.LongTimerDuration).TotalSeconds)
-            {
-                TimerService.TimerDuration = TimerService.ShortTimerDuration;
-                request = new NotificationRequest
-                {
-                    NotificationId = 33,
-                    Title = "Time to look away!"
-                };
-            }
-            else // Short timer was last active.
-            {
-                TimerService.TimerDuration = TimerService.LongTimerDuration;
-                request = new NotificationRequest
-                {
-                    NotificationId = 34,
-                    Title = "Back to it!"
-                };
-            }
-
-            SetDuration(TimeSpan.FromMinutes(TimerService.TimerDuration));
-
-            if (request != null)
-            {
-                LocalNotificationCenter.Current.Show(request);
-            }
-        }
-
         private void StartUIRefreshTimer()
         {
             uiRefreshTimer?.Dispose();
             uiRefreshTimer = new Timer(_ =>
             {
-                var remaining = TimerService.GetCurrentTimeRemaining();
                 RaiseTimeChanged();
-
-                if (remaining <= TimeSpan.Zero && !Preferences.Get(PreferenceKeys.Completed, false))
-                {
-                    Preferences.Set(PreferenceKeys.Completed, true);
-                    Preferences.Set(PreferenceKeys.IsRunning, false);
-
-                    uiRefreshTimer?.Dispose();
-                    uiRefreshTimer = null;
-
-                    MainThread.BeginInvokeOnMainThread(OnCompleted);
-                }
             }, null, TimeSpan.FromMilliseconds(500), TimeSpan.FromMilliseconds(500));
         }
 
@@ -177,9 +102,6 @@ namespace TripleTwenty.ViewModels
         {
             if (TimerService.Pause())
             {
-                uiRefreshTimer?.Dispose();
-                uiRefreshTimer = null;
-
                 RaiseTimeChanged();
             }
         }
@@ -187,12 +109,7 @@ namespace TripleTwenty.ViewModels
         [RelayCommand]
         private void StopTimer()
         {
-            uiRefreshTimer?.Dispose();
-            uiRefreshTimer = null;
-
-            TimerService.TimerDuration = TimerService.LongTimerDuration;
             TimerService.Stop();
-
             RaiseTimeChanged();
         }
 
@@ -202,6 +119,16 @@ namespace TripleTwenty.ViewModels
 
         public void RaiseTimeChanged() =>
             MainThread.BeginInvokeOnMainThread(() => OnPropertyChanged(nameof(Time)));
+
+        #endregion
+
+        #region IDisposable
+
+        public void Dispose()
+        {
+            uiRefreshTimer?.Dispose();
+            uiRefreshTimer = null;
+        }
 
         #endregion
     }
