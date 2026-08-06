@@ -1,7 +1,13 @@
-﻿using TripleTwenty.Common;
+﻿using Plugin.LocalNotification;
+using Plugin.LocalNotification.Core.Models;
+using Plugin.LocalNotification.EventArgs;
+using TripleTwenty.Common;
 
 namespace TripleTwenty.Services
 {
+    /// <summary>
+    /// THe timer actions.
+    /// </summary>
     public enum TimerAction
     {
         Started,
@@ -40,7 +46,64 @@ namespace TripleTwenty.Services
         /// </summary>
         public static double TimerDuration { get; set; } = LongTimerDuration;
 
+        private static int _notificationId = 212;
+
+        private static bool _initialized = false;
+
         #endregion
+
+        #region Private Methods
+
+        private static void SetNotification()
+        {
+            var request = new NotificationRequest
+            {
+                NotificationId = _notificationId,
+                Title = TimerDuration == LongTimerDuration ? "Time to look away!" : "Back at it!",
+                Schedule = new NotificationRequestSchedule
+                {
+                    NotifyTime = DateTime.Now.Add(GetCurrentTimeRemaining())
+                }
+            };
+
+            LocalNotificationCenter.Current.Show(request);
+        }
+
+        private static void CancelNotification()
+        {
+            LocalNotificationCenter.Current.Cancel(_notificationId);
+        }
+
+        #endregion
+
+        #region Public Methods
+
+        public static void Initialize()
+        {
+            if (!_initialized)
+            {
+                _initialized = true;
+
+                LocalNotificationCenter.Current.NotificationActionTapped += OnNotificationActionTapped;
+                LocalNotificationCenter.Current.NotificationReceived += OnNotificationReceived;
+            }
+        }
+
+        public static void OnNotificationReceived(NotificationEventArgs e)
+        {
+            TimerDuration = TimerDuration == LongTimerDuration ? ShortTimerDuration : LongTimerDuration;
+            Reset();
+        }
+
+        public static void OnNotificationActionTapped(NotificationActionEventArgs e)
+        {
+            if (e.IsDismissed || e.IsTapped)
+            {
+                Start();
+            }
+        }
+
+        #region Timer
 
         /// <summary>
         /// Get the current remaining time on the timer.
@@ -69,6 +132,17 @@ namespace TripleTwenty.Services
         }
 
         /// <summary>
+        /// Resets timer.
+        /// </summary>
+        public static void Reset()
+        {
+            Preferences.Set(PreferenceKeys.DurationSeconds, TimeSpan.FromMinutes(TimerDuration).TotalSeconds);
+            Preferences.Set(PreferenceKeys.RemainingAtPause, TimeSpan.FromMinutes(TimerDuration).TotalSeconds);
+            Preferences.Set(PreferenceKeys.IsRunning, false);
+            Preferences.Set(PreferenceKeys.Completed, false);
+        }
+
+        /// <summary>
         /// Starts timer if not running or completed.
         /// </summary>
         /// <returns>Success state.</returns>
@@ -80,6 +154,7 @@ namespace TripleTwenty.Services
             {
                 Preferences.Set(PreferenceKeys.StartedAt, DateTime.UtcNow.Ticks);
                 Preferences.Set(PreferenceKeys.IsRunning, true);
+                SetNotification();
 
                 success = true;
             }
@@ -99,6 +174,7 @@ namespace TripleTwenty.Services
             {
                 var remaining = GetCurrentTimeRemaining();
 
+                LocalNotificationCenter.Current.Cancel(_notificationId);
                 Preferences.Set(PreferenceKeys.RemainingAtPause, remaining.TotalSeconds);
                 Preferences.Set(PreferenceKeys.IsRunning, false);
 
@@ -113,10 +189,13 @@ namespace TripleTwenty.Services
         /// </summary>
         public static void Stop()
         {
-            Preferences.Set(PreferenceKeys.DurationSeconds, TimeSpan.FromMinutes(TimerDuration).TotalSeconds);
-            Preferences.Set(PreferenceKeys.RemainingAtPause, TimeSpan.FromMinutes(TimerDuration).TotalSeconds);
-            Preferences.Set(PreferenceKeys.IsRunning, false);
-            Preferences.Set(PreferenceKeys.Completed, false);
+            TimerDuration = LongTimerDuration;
+            Reset();
+            CancelNotification();
         }
+
+        #endregion
+
+        #endregion
     }
 }
